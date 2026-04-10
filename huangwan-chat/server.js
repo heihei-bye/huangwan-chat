@@ -1,6 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import { config } from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 config();
 
@@ -8,8 +13,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 3001;
+// 静态文件服务
+app.use(express.static(__dirname));
 
+const PORT = process.env.PORT || 3001;
 const SILICONFLOW_API = 'https://api.siliconflow.cn/v1/chat/completions';
 const API_KEY = process.env.SILICONFLOW_API_KEY || '';
 
@@ -49,19 +56,8 @@ app.post('/api/chat', async (req, res) => {
 
         const chatMessages = [
             { role: 'system', content: finalSystemPrompt },
-            ...messages.map(m => ({
-                role: m.role,
-                content: m.content
-            }))
+            ...messages
         ];
-
-        if (!API_KEY) {
-            const lastMessage = messages[messages.length - 1]?.content || '';
-            return res.json({
-                content: generateLocalResponse(lastMessage),
-                usage: { total_tokens: 0 }
-            });
-        }
 
         const response = await fetch(SILICONFLOW_API, {
             method: 'POST',
@@ -70,69 +66,30 @@ app.post('/api/chat', async (req, res) => {
                 'Authorization': `Bearer ${API_KEY}`
             },
             body: JSON.stringify({
-                model: model || 'deepseek-ai/DeepSeek-V2.5',
+                model: model || 'Qwen/Qwen2.5-7B-Instruct',
                 messages: chatMessages,
-                stream: false,
                 temperature: temperature || 0.9,
-                max_tokens: 500,
-                top_p: 0.9
+                max_tokens: 500
             })
         });
 
         if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
+            const errorData = await response.json();
+            console.error('SiliconFlow API error:', errorData);
+            return res.status(500).json({ error: 'AI服务调用失败' });
         }
 
         const data = await response.json();
-        const reply = data.choices[0]?.message?.content || '嗯？';
-
-        res.json({
-            content: reply,
-            usage: data.usage
+        res.json({ 
+            reply: data.choices[0].message.content,
+            model: data.model
         });
-
     } catch (error) {
         console.error('Chat error:', error);
-        res.status(500).json({
-            error: '抱歉，出错了',
-            detail: error.message
-        });
+        res.status(500).json({ error: '服务器内部错误' });
     }
 });
 
-function generateLocalResponse(message) {
-    const msg = message.toLowerCase();
-
-    if (/(想|喜欢|爱)/.test(msg)) {
-        return '我也是啦\n知道啦笨蛋';
-    }
-    if (/(怎么|什么|为什么)/.test(msg)) {
-        return '嗯\n说清楚点嘛';
-    }
-    if (/(累|困|饿)/.test(msg)) {
-        return '哎呀\n注意身体呀\n好好休息';
-    }
-    if (/晚安/.test(msg)) {
-        return '晚安\n乖乖睡哦\n抱抱';
-    }
-    if (/(吃|饭)/.test(msg)) {
-        return '吃的什么呀\n好吃吗';
-    }
-
-    const responses = [
-        '嗯嗯\n然后呢',
-        '怎么了呀\n说说看',
-        '诶\n你今天怎么样',
-        '好\n继续说',
-        '嗯嗯我听着\n还有呢',
-        '然后呢然后呢\n好奇'
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
-}
-
 app.listen(PORT, () => {
-    console.log(`🚀 Chat server running on http://localhost:${PORT}`);
-    if (!API_KEY) {
-        console.log('⚠️  No API key configured, using local responses');
-    }
+    console.log(`Server running on port ${PORT}`);
 });
