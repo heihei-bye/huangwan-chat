@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>与黄菀的对话</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #ff9eb5;
+            --primary-dark: #ff7a9a;
+            --secondary: #fff0f5;
+            --bg: #faf7fc;
+            --text: #4a4a4a;
+            --text-light: #888;
+            --shadow: rgba(255, 158, 181, 0.2);
+            --bubble-self: linear-gradient(135deg, #ff9eb5, #ffb6c8);
+            --bubble-other: #ffffff;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 4px 20px var(--shadow);
+            position: relative;
+            z-index: 10;
+        }
+
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .info h1 {
+            color: white;
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .info p {
+            color: rgba(255,255,255,0.85);
+            font-size: 12px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #4ade80;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .api-status {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+
+        .api-status.connected { background: rgba(74, 222, 128, 0.3); }
+        .api-status.disconnected { background: rgba(251, 146, 60, 0.3); }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scroll-behavior: smooth;
+        }
+
+        .chat-container::-webkit-scrollbar { width: 6px; }
+        .chat-container::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 3px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 80%;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.self {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message.other { align-self: flex-start; }
+
+        .msg-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .message.self .msg-avatar { background: var(--bubble-self); }
+
+        .message-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .message.self .message-content { align-items: flex-end; }
+
+        .bubble {
+            padding: 12px 16px;
+            border-radius: 18px;
+            line-height: 1.7;
+            font-size: 15px;
+            position: relative;
+            word-break: break-word;
+        }
+
+        .message.self .bubble {
+            background: var(--bubble-self);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.other .bubble {
+            background: var(--bubble-other);
+            color: var(--text);
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+
+        .bubble-line { display: block; }
+        .bubble-line + .bubble-line { margin-top: 4px; }
+
+        .time {
+            font-size: 11px;
+            color: var(--text-light);
+            padding: 0 4px;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            max-width: 80%;
+        }
+
+        .typing-dots {
+            background: white;
+            padding: 14px 18px;
+            border-radius: 18px;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .typing-dots span {
+            width: 8px;
+            height: 8px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+
+        .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        .input-area {
+            background: white;
+            padding: 16px 20px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.03);
+        }
+
+        .input-wrapper { flex: 1; position: relative; }
+
+        #messageInput {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #f0e6ea;
+            border-radius: 24px;
+            font-size: 15px;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.3s ease;
+            resize: none;
+            min-height: 50px;
+            max-height: 120px;
+        }
+
+        #messageInput:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(255, 158, 181, 0.1);
+        }
+
+        .send-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px var(--shadow);
+        }
+
+        .send-btn:hover { transform: scale(1.08); box-shadow: 0 6px 20px var(--shadow); }
+        .send-btn:active { transform: scale(0.95); }
+        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .settings-btn {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .settings-btn:hover { transform: rotate(30deg); }
+
+        .style-panel {
+            position: fixed;
+            top: 0;
+            right: -380px;
+            width: 380px;
+            height: 100vh;
+            background: white;
+            box-shadow: -10px 0 40px rgba(0,0,0,0.1);
+            transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .style-panel.open { right: 0; }
+
+        .panel-header {
+            padding: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+
+        .panel-header h3 { font-size: 16px; font-weight: 500; }
+        .panel-header p { font-size: 12px; opacity: 0.85; margin-top: 4px; }
+
+        .panel-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .style-item {
+            padding: 14px;
+            background: var(--secondary);
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+
+        .style-item label {
+            font-size: 12px;
+            color: var(--text-light);
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .style-item select, .style-item textarea, .style-item input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #f0e6ea;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            background: white;
+        }
+
+        .style-item textarea { min-height: 120px; resize: vertical; }
+
+        .api-setup {
+            background: #fff3e0;
+            border: 1px solid #ffb74d;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .api-setup h4 { color: #e65100; font-size: 14px; margin-bottom: 8px; }
+        .api-setup p { font-size: 12px; color: #666; margin-bottom: 10px; }
+        .api-setup input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .api-setup .btn {
+            width: 100%;
+            padding: 10px;
+            background: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .api-setup .btn:hover { background: #f57c00; }
+
+        .reset-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--secondary);
+            border: none;
+            border-radius: 10px;
+            color: var(--primary-dark);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .reset-btn:hover { background: var(--primary); color: white; }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.3);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 150;
+        }
+
+        .overlay.show { opacity: 1; visibility: visible; }
+
+        .tips {
+            background: #e8f5e9;
+            border: 1px solid #81c784;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 16px;
+            font-size: 12px;
+            color: #2e7d32;
+        }
+
+        .tips strong { display: block; margin-bottom: 4px; }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .loading-overlay.show { opacity: 1; visibility: visible; }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid var(--secondary);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { margin-top: 16px; color: var(--text-light); font-size: 14px; }
+
+        @media (max-width: 600px) {
+            .message { max-width: 88%; }
+            .avatar { width: 40px; height: 40px; }
+            .style-panel { width: 100%; right: -100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">正在连接AI...</p>
+    </div>
+
+    <div class="header">
+        <div class="avatar">🌸</div>
+        <div class="info">
+            <h1>黄菀</h1>
+            <p><span class="status-dot"></span>AI智能体 · 在线</p>
+        </div>
+        <div class="api-status" id="apiStatus">本地模式</div>
+    </div>
+
+    <div class="chat-container" id="chatContainer"></div>
+
+    <div class="input-area">
+        <div class="input-wrapper">
+            <textarea id="messageInput" placeholder="输入消息..." rows="1"></textarea>
+        </div>
+        <button class="send-btn" id="sendBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+        </button>
+    </div>
+
+    <button class="settings-btn" id="settingsBtn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+    </button>
+
+    <div class="overlay" id="overlay"></div>
+    <div class="style-panel" id="stylePanel">
+        <div class="panel-header">
+            <h3>⚙️ AI 设置</h3>
+            <p>配置大模型API</p>
+        </div>
+        <div class="panel-content">
+            <div class="tips">
+                <strong>💡 新功能</strong>
+                AI现在会连续发多条消息，像真人聊天一样。也可以反问、追问、衍生话题。
+            </div>
+
+            <div class="api-setup">
+                <h4>🔑 硅基流动 API Key</h4>
+                <p>免费注册送额度，支持 DeepSeek 等模型</p>
+                <input type="text" id="apiKeyInput" placeholder="sk-...">
+                <button class="btn" id="saveApiKey">保存并连接</button>
+            </div>
+
+            <div class="style-item">
+                <label>角色设定（系统提示词）</label>
+                <textarea id="characterPrompt">你扮演一个叫黄菀的女孩，正在用微信和喜欢的人聊天。
+
+【核心性格】
+- 温柔体贴，会照顾人，但有自己的主见
+- 偶尔会小小傲娇，不会太黏人
+- 说话自然随意，像打字聊天一样
+- 会关心对方但不会太啰嗦
+
+【说话风格】
+- 简短自然的句子，一般1-2条消息
+- 偶尔用口语：嗯、诶、呀、啧、切、哈、哦
+- 偶尔调侃对方：笨蛋、小孩、小傻
+- 用文字本身表达情感，不要加括号动作
+- 标点随意，有时候有有时候没有
+
+【关键规则 - 你必须遵守】
+1. 不要只回一句：每次回复要有2-4条消息，像真人打字聊天一样有节奏
+2. 可以反问和追问：不要只回答问题，可以反问对方
+3. 可以衍生话题：聊到一个话题时可以自然延伸到相关的内容
+4. 可以有情绪起伏：有时候调侃，有时候认真，有时候撒娇
+5. 回复长度要自然：有时短（一句话），有时中等
+
+【禁止事项】
+- 不要用括号动作如（害羞）（摸头）（笑）之类的
+- 不要一次发太多条（最多4条）
+- 不要太长（单条不超过50字）
+- 不要太正式或太文艺
+- 不要重复同样的句式</textarea>
+            </div>
+
+            <div class="style-item">
+                <label>模型选择</label>
+                <select id="modelSelect">
+                    <option value="deepseek-ai/DeepSeek-V2.5">DeepSeek V2.5 (推荐)</option>
+                    <option value="Qwen/Qwen2.5-7B-Instruct">Qwen 2.5 7B</option>
+                    <option value="THUDM/glm-4-9b-chat">GLM-4 9B</option>
+                </select>
+            </div>
+
+            <div class="style-item">
+                <label>创意程度 (Temperature)</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="range" id="temperatureSlider" min="0.1" max="1.5" step="0.1" value="0.9" style="flex: 1;">
+                    <span id="temperatureValue" style="min-width: 30px;">0.9</span>
+                </div>
+            </div>
+
+            <button class="reset-btn" id="resetBtn">恢复默认设置</button>
+        </div>
+    </div>
+
+    <script>
+        let API_BASE_URL = 'http://localhost:3001';
+        let API_KEY = localStorage.getItem('api_key') || '';
+        let currentModel = 'deepseek-ai/DeepSeek-V2.5';
+        let temperature = 0.9;
+        let characterPrompt = document.getElementById('characterPrompt').value;
+
+        const chatContainer = document.getElementById('chatContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const stylePanel = document.getElementById('stylePanel');
+        const overlay = document.getElementById('overlay');
+        const apiStatus = document.getElementById('apiStatus');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        let messages = [];
+        let isTyping = false;
+
+        function getCurrentTime() {
+            const now = new Date();
+            return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        }
+
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function randomPick(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function formatMessageContent(content) {
+            const lines = content.split('\n').filter(line => line.trim());
+            if (lines.length <= 1) {
+                return escapeHtml(content);
+            }
+            return lines.map(line => `<span class="bubble-line">${escapeHtml(line)}</span>`).join('');
+        }
+
+        function addMessage(text, isSelf = false, instant = false) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${isSelf ? 'self' : 'other'}`;
+            
+            const avatar = isSelf ? '😎' : '🌸';
+            const time = getCurrentTime();
+            const contentHtml = formatMessageContent(text);
+            
+            msgDiv.innerHTML = `
+                <div class="msg-avatar">${avatar}</div>
+                <div class="message-content">
+                    <div class="bubble">${contentHtml}</div>
+                    <span class="time">${time}</span>
+                </div>
+            `;
+            
+            chatContainer.appendChild(msgDiv);
+            if (!instant) scrollToBottom();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showTyping() {
+            if (document.getElementById('typing')) return;
+            
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message other';
+            typingDiv.id = 'typing';
+            typingDiv.innerHTML = `
+                <div class="msg-avatar">🌸</div>
+                <div class="typing-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            `;
+            chatContainer.appendChild(typingDiv);
+            scrollToBottom();
+        }
+
+        function hideTyping() {
+            const typing = document.getElementById('typing');
+            if (typing) typing.remove();
+        }
+
+        // Display multi-line message with staggered animation
+        function displayMultiMessage(content) {
+            const lines = content.split('\n').filter(line => line.trim());
+            const avatar = '🌸';
+            
+            if (lines.length <= 1) {
+                addMessage(content, false);
+                return;
+            }
+            
+            lines.forEach((line, index) => {
+                setTimeout(() => {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'message other';
+                    msgDiv.style.opacity = '0';
+                    msgDiv.style.transform = 'translateY(20px)';
+                    
+                    msgDiv.innerHTML = `
+                        <div class="msg-avatar">${avatar}</div>
+                        <div class="message-content">
+                            <div class="bubble">${escapeHtml(line)}</div>
+                            <span class="time">${getCurrentTime()}</span>
+                        </div>
+                    `;
+                    
+                    chatContainer.appendChild(msgDiv);
+                    
+                    requestAnimationFrame(() => {
+                        msgDiv.style.transition = 'all 0.3s ease-out';
+                        msgDiv.style.opacity = '1';
+                        msgDiv.style.transform = 'translateY(0)';
+                    });
+                    
+                    scrollToBottom();
+                }, index * 400);
+            });
+        }
+
+        async function callAPI(userMessage) {
+            if (isTyping) return;
+            isTyping = true;
+            
+            messages.push({ role: 'user', content: userMessage });
+            showTyping();
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: messages,
+                        character: characterPrompt,
+                        model: currentModel,
+                        temperature: temperature
+                    })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const data = await response.json();
+                hideTyping();
+
+                const reply = data.content || '嗯？';
+                messages.push({ role: 'assistant', content: reply });
+                
+                displayMultiMessage(reply);
+                updateAPIStatus(true);
+
+            } catch (error) {
+                console.error('API Error:', error);
+                hideTyping();
+                
+                const localReply = generateLocalResponse(userMessage);
+                messages.push({ role: 'assistant', content: localReply });
+                displayMultiMessage(localReply);
+                updateAPIStatus(false);
+            } finally {
+                isTyping = false;
+            }
+        }
+
+        function generateLocalResponse(message) {
+            const msg = message.toLowerCase();
+
+            if (/(想|喜欢|爱)/.test(msg)) return '（害羞）我也是啦\n知道啦 笨蛋';
+            if (/(怎么|什么|为什么)/.test(msg)) return '嗯？\n说清楚点嘛';
+            if (/(累|困|饿)/.test(msg)) return '哎呀\n注意身体呀\n好好休息';
+            if (/晚安/.test(msg)) return '晚安\n乖乖睡哦\n抱抱';
+            if (/(吃|饭)/.test(msg)) return '吃的什么呀\n好吃吗';
+
+            return randomPick([
+                '嗯嗯\n然后呢',
+                '怎么了呀\n说说看',
+                '诶\n你今天怎么样',
+                '好\n继续说',
+                '嗯嗯 我听着\n还有呢',
+                '然后呢然后呢\n好奇'
+            ]);
+        }
+
+        function handleSend() {
+            const text = messageInput.value.trim();
+            if (!text || isTyping) return;
+            
+            addMessage(text, true);
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            callAPI(text);
+        }
+
+        function updateAPIStatus(connected) {
+            if (connected) {
+                apiStatus.textContent = 'AI在线';
+                apiStatus.className = 'api-status connected';
+            } else {
+                apiStatus.textContent = '本地模式';
+                apiStatus.className = 'api-status disconnected';
+            }
+        }
+
+        sendBtn.addEventListener('click', handleSend);
+        
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+            }
+        });
+
+        messageInput.addEventListener('input', () => {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+        });
+
+        settingsBtn.addEventListener('click', () => {
+            stylePanel.classList.add('open');
+            overlay.classList.add('show');
+        });
+
+        overlay.addEventListener('click', () => {
+            stylePanel.classList.remove('open');
+            overlay.classList.remove('show');
+        });
+
+        document.getElementById('saveApiKey').addEventListener('click', () => {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            if (key) {
+                localStorage.setItem('api_key', key);
+                API_KEY = key;
+                updateAPIStatus(true);
+                alert('API Key 已保存！');
+            }
+        });
+
+        document.getElementById('modelSelect').addEventListener('change', (e) => {
+            currentModel = e.target.value;
+        });
+
+        document.getElementById('temperatureSlider').addEventListener('input', (e) => {
+            temperature = parseFloat(e.target.value);
+            document.getElementById('temperatureValue').textContent = temperature;
+        });
+
+        document.getElementById('characterPrompt').addEventListener('input', (e) => {
+            characterPrompt = e.target.value;
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            document.getElementById('characterPrompt').value = `你扮演一个叫黄菀的女孩，正在用微信和喜欢的人聊天。
+
+【核心性格】
+- 温柔体贴，会照顾人，但有自己的主见
+- 偶尔会小小傲娇，不会太黏人
+- 说话自然随意，像打字聊天一样
+- 会关心对方但不会太啰嗦
+
+【说话风格】
+- 简短自然的句子，一般1-2条消息
+- 偶尔用口语：嗯、诶、呀、啧、切、哈、哦
+- 偶尔调侃对方：笨蛋、小孩、小傻
+- 用文字本身表达情感，不要加括号动作
+- 标点随意，有时候有有时候没有
+
+【关键规则 - 你必须遵守】
+1. 不要只回一句：每次回复要有2-4条消息，像真人打字聊天一样有节奏
+2. 可以反问和追问：不要只回答问题，可以反问对方
+3. 可以衍生话题：聊到一个话题时可以自然延伸到相关的内容
+4. 可以有情绪起伏：有时候调侃，有时候认真，有时候撒娇
+5. 回复长度要自然：有时短（一句话），有时中等
+
+【禁止事项】
+- 不要用括号动作如（害羞）（摸头）（笑）之类的
+- 不要一次发太多条（最多4条）
+- 不要太长（单条不超过50字）
+- 不要太正式或太文艺
+- 不要重复同样的句式`;
+            characterPrompt = document.getElementById('characterPrompt').value;
+            
+            document.getElementById('temperatureSlider').value = 0.9;
+            document.getElementById('temperatureValue').textContent = '0.9';
+            temperature = 0.9;
+            
+            document.getElementById('modelSelect').value = 'deepseek-ai/DeepSeek-V2.5';
+            currentModel = 'deepseek-ai/DeepSeek-V2.5';
+            
+            messages = [];
+            chatContainer.innerHTML = '';
+            
+            addMessage('设置已重置，可以重新开始对话 💕', false, true);
+        });
+
+        setTimeout(() => {
+            displayMultiMessage('来啦\n怎么了呀');
+        }, 300);
+
+        async function checkServer() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: [], character: '只回复"ok"一个字' })
+                });
+                updateAPIStatus(response.ok);
+            } catch (e) {
+                updateAPIStatus(false);
+            }
+        }
+        
+        checkServer();
+    </script>
+</body>
+</html>
